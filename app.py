@@ -25,6 +25,11 @@ def health_check():
 
 @app.route("/webhook", methods=["POST"])
 def receive_webhook():
+    # طبع كل الهيدرز والبيانات الواردة في اللوجز لمراقبة ما يرسله جيت لاب
+    print("--- NEW WEBHOOK RECEIVED ---")
+    print("Headers:", dict(request.headers))
+    print("Body:", request.json)
+    
     data = request.json or {}
     
     gitlab_event = request.headers.get("X-Gitlab-Event", "")
@@ -33,7 +38,6 @@ def receive_webhook():
     source = "GitLab"
     description = f"Event: {gitlab_event or object_kind}"
     
-    # تحليل مرن يشمل الهيدر أو الـ object_kind مباشرة
     if "Push" in gitlab_event or object_kind == "push":
         user_name = data.get("user_name") or data.get("user_username", "Someone")
         ref = data.get("ref", "refs/heads/main").split("/")[-1]
