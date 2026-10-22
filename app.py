@@ -84,14 +84,8 @@ def receive_webhook():
     events_database.insert(0, event_entry)
     if len(events_database) > 20:
         events_database.pop()
-
-    send_to_slack(f"🔔 *GitLab Webhook Alert*\n{description}")
-
-    return jsonify({"status": "success", "message": "Event processed and recorded"}), 201
-
-@app.route("/api/events/recent", methods=["GET"])
-def get_recent_events():
-    return jsonify(events_database), 200
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+@app.route("/api/events/clear", methods=["POST"])
+def clear_events():
+    global events_database
+    events_database.clear()
+    return jsonify({"status": "cleared"}), 200
