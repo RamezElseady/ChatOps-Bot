@@ -25,7 +25,6 @@ def health_check():
 
 @app.route("/webhook", methods=["POST"])
 def receive_webhook():
-    # طبع كل الهيدرز والبيانات الواردة في اللوجز لمراقبة ما يرسله جيت لاب
     print("--- NEW WEBHOOK RECEIVED ---")
     print("Headers:", dict(request.headers))
     print("Body:", request.json)
@@ -36,29 +35,43 @@ def receive_webhook():
     object_kind = data.get("object_kind", "")
     
     source = "GitLab"
-    description = f"Event: {gitlab_event or object_kind}"
+    description = ""
     
-    if "Push" in gitlab_event or object_kind == "push":
+    # التحقق الأدق لأحداث الـ Push بغض النظر عن مصدر الهيدر أو الـ object_kind
+    if object_kind == "push" or "Push Hook" in gitlab_event:
         user_name = data.get("user_name") or data.get("user_username", "Someone")
         ref = data.get("ref", "refs/heads/main").split("/")[-1]
         commits = data.get("commits", [])
-        commit_msg = commits[0].get("message", "No commit message") if commits else "No commits"
-        description = f"🔨 Push by *{user_name}* to *{ref}*:\n> _{commit_msg.strip()}_"
         
-    elif "Pipeline" in gitlab_event or object_kind == "pipeline":
+        if commits:
+            commit_msgs = [c.get("message", "").strip() for c in commits]
+            commit_text = " | ".join(commit_msgs)
+        else:
+            commit_text = "No commit message provided"
+            
+        description = f"🔨 Push by *{user_name}* to *{ref}*:\n> _{commit_text}_"
+        
+    elif object_kind == "pipeline" or "Pipeline Hook" in gitlab_event:
         attributes = data.get("object_attributes", {})
         pipeline_id = attributes.get("id", "N/A")
         status = attributes.get("status", "unknown")
         ref = attributes.get("ref", "main")
         description = f"🚀 Pipeline #{pipeline_id} on *{ref}* status: *{status}*"
         
-    elif "Merge Request" in gitlab_event or object_kind == "merge_request":
+    elif object_kind == "merge_request" or "Merge Request Hook" in gitlab_event:
         mr = data.get("object_attributes", {})
         title = mr.get("title", "No Title")
         state = mr.get("state", "opened")
         description = f"🔀 Merge Request: *{title}* (State: *{state}*)"
+        
+    elif object_kind == "build" or "Job Hook" in gitlab_event:
+        build_name = data.get("build_name", "job")
+        build_status = data.get("build_status", "unknown")
+        description = f"🛠️ Job *{build_name}* status: *{build_status}*"
     else:
-        description = f"📦 GitLab Event: {gitlab_event or object_kind or 'Generic'}"
+        # التقاط أي حدث آخر بشكل تفصيلي
+        event_name = gitlab_event or object_kind or "Generic Event"
+        description = f"📦 GitLab Event: {event_name}"
 
     event_entry = {
         "source": source,
