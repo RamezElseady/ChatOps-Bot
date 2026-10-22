@@ -84,11 +84,18 @@ def receive_webhook():
         
     return jsonify({"status": "received"}), 200
 
-@app.route("/api/events/clear", methods=["POST"])@app.route("/api/events/recent", methods=["GET"])
+@app.route("/api/events/clear", methods=["POST"])
+def clear_events():
+    global events_database
+    events_database.clear()
+    return jsonify({"status": "cleared"}), 200
+
+@app.route("/api/events/recent", methods=["GET"])
 def get_recent_events():
     return jsonify(events_database), 200
+
 @app.route("/api/prometheus/alerts", methods=["GET"])
-def get_prometheus_alerts(): 
+def get_prometheus_alerts():
     try:
         prom_url = "http://host.docker.internal:9090/api/v1/alerts"
         res = requests.get(prom_url, timeout=3.0)
