@@ -1,20 +1,19 @@
 from datetime import datetime
 from flask import Flask, jsonify, request
-import requests  # مهم لو هتبعت إشعارات مباشرة لـ Slack من الكود
+from prometheus_flask_exporter import PrometheusMetrics
+import requests
 
 app = Flask(__name__)
 
-from prometheus_flask_exporter import PrometheusMetrics
 metrics = PrometheusMetrics(app)
 
 events_database = []
 
-# ضع هنا رابط الـ Slack Webhook الخاص بك لو حابب السيرفر يبعت له مباشرة
 SLACK_WEBHOOK_URL = "YOUR_SLACK_WEBHOOK_URL_HERE"
 
 def send_to_slack(message):
     if "YOUR_SLACK_WEBHOOK_URL" in SLACK_WEBHOOK_URL:
-        return # تخطي لو لم يتم ضبط الرابط بعد
+        return
     try:
         requests.post(SLACK_WEBHOOK_URL, json={"text": message})
     except Exception as e:
@@ -28,40 +27,38 @@ def health_check():
 def receive_webhook():
     data = request.json or {}
     
-    # فحص نوع الحدث القادم من جيت لاب بدقة
-    gitlab_event = request.headers.get("X-Gitlab-Event", "Unknown Event")
+    gitlab_event = request.headers.get("X-Gitlab-Event", "")
+    object_kind = data.get("object_kind", "")
     
     source = "GitLab"
-    description = "General Event"
+    description = f"Event: {gitlab_event or object_kind}"
     
-    # تحليل الأحداث المختلفة وإبراز تفاصيلها
-    if "Push Hook" in gitlab_event or "object_kind" in data and data.get("object_kind") == "push":
-        user_name = data.get("user_name", "Someone")
+    # تحليل مرن يشمل الهيدر أو الـ object_kind مباشرة
+    if "Push" in gitlab_event or object_kind == "push":
+        user_name = data.get("user_name") or data.get("user_username", "Someone")
         ref = data.get("ref", "refs/heads/main").split("/")[-1]
         commits = data.get("commits", [])
         commit_msg = commits[0].get("message", "No commit message") if commits else "No commits"
-        
         description = f"🔨 Push by *{user_name}* to *{ref}*:\n> _{commit_msg.strip()}_"
         
-    elif "Pipeline Hook" in gitlab_event or "object_kind" in data and data.get("object_kind") == "pipeline":
+    elif "Pipeline" in gitlab_event or object_kind == "pipeline":
         attributes = data.get("object_attributes", {})
         pipeline_id = attributes.get("id", "N/A")
         status = attributes.get("status", "unknown")
         ref = attributes.get("ref", "main")
-        
         description = f"🚀 Pipeline #{pipeline_id} on *{ref}* status: *{status}*"
         
-    elif "Merge Request Hook" in gitlab_event:
+    elif "Merge Request" in gitlab_event or object_kind == "merge_request":
         mr = data.get("object_attributes", {})
         title = mr.get("title", "No Title")
         state = mr.get("state", "opened")
         description = f"🔀 Merge Request: *{title}* (State: *{state}*)"
     else:
-        description = f"📦 Event received: {gitlab_event}"
+        description = f"📦 GitLab Event: {gitlab_event or object_kind or 'Generic'}"
 
     event_entry = {
         "source": source,
-        "event_type": gitlab_event,
+        "event_type": gitlab_event or object_kind or "Unknown",
         "summary": description,
         "payload": data,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -71,7 +68,6 @@ def receive_webhook():
     if len(events_database) > 20:
         events_database.pop()
 
-    # إرسال ملخص احترافي للسلاك
     send_to_slack(f"🔔 *GitLab Webhook Alert*\n{description}")
 
     return jsonify({"status": "success", "message": "Event processed and recorded"}), 201
