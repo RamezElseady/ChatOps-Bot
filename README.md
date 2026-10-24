@@ -73,23 +73,6 @@ The system architecture follows a reactive event-driven model. Interactivity is 
 | Cloud Provider | AWS (EC2 & Cost Explorer) | Infrastructure control and financial metrics API |
 | Observability | Prometheus | Local metrics scraping and alert state management (Port 9090) |
 
----
-
-## 📁 Project Structure
-
-```
-.
-├── lambda/
-│   └── lambda_function.py     # AWS Lambda entrypoint for Slack interaction base
-├── webhook_hub/
-│   ├── app.py                 # Flask server receiving GitLab Webhooks & Prometheus
-│   ├── Dockerfile             # Container configuration for Flask app
-│   └── docker-compose.yml     # Container execution stack
-├── docs/
-│   ├── architecture.png       # 3D Architecture diagram
-│   └── intro_background.jpg   # Operations Center banner asset
-└── README.md                  # Project documentation
-```
 
 ---
 
